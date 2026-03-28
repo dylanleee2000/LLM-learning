@@ -32,7 +32,7 @@ def create_sample_documents():
 
         """向量数据库是专门用于存储和检索向量数据的数据库。
         它将文本转换为高维向量（embedding），通过向量相似度搜索找到相关内容。
-        常用的向量数据库包括 Chroma、Pinecone、Weaviate 等。""",
+        常用的向量数据库包括 FAISS、Chroma、Pinecone、Weaviate 等。""",
 
         """Embedding 是将文本、图像等数据转换为数值向量的技术。
         语义相似的文本在向量空间中距离较近。
@@ -70,7 +70,7 @@ def main():
 
         # 步骤 3: 创建向量存储
         print("\n🗄️  步骤 3: 创建向量存储")
-        print("   初始化 ChromaDB (首次运行会下载 embedding 模型)...")
+        print("   初始化 FAISS 向量库 (首次运行会下载 embedding 模型)...")
         vector_store = create_vector_store(collection_name="demo")
 
         # 添加文档

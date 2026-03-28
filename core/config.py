@@ -41,7 +41,7 @@ DEFAULT_QWEN_MODEL = "qwen-turbo"
 DEFAULT_OLLAMA_MODEL = "llama2"
 
 # 向量存储配置
-VECTOR_STORE_PATH = PROJECT_ROOT / ".chroma"
+VECTOR_STORE_PATH = PROJECT_ROOT / ".faiss"
 DEFAULT_EMBEDDING_MODEL = "BAAI/bge-small-zh-v1.5"  # 中文 embedding 模型
 
 

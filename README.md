@@ -2,6 +2,8 @@
 
 个人 LLM 技术学习与实践的 Python 项目，包含 RAG、Agent、Prompt Engineering 等实验代码。
 
+**技术栈**: LangChain + LangGraph + FAISS + sentence-transformers
+
 ## 项目结构
 
 ```
