@@ -47,7 +47,7 @@ def main():
     print("=" * 60)
 
     # 检查 API Key
-    provider = "openai"
+    provider = "qwen"
     if not check_api_key(provider):
         print(f"\n⚠️  未配置 {provider} 的 API Key")
         print("尝试使用 Ollama...")
