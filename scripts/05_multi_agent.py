@@ -1,6 +1,7 @@
 """
 示例 5: Multi-Agent 多智能体协作系统
 演示多个专业智能体如何协作完成复杂任务
+Key Words: Multi-Agent, Collaboration, Workflow, State Graph, DAG
 """
 import sys
 from pathlib import Path
@@ -31,6 +32,9 @@ class MultiAgentState(TypedDict):
     analysis_result: str  # 分析结果
     final_answer: str   # 最终答案
     next_step: str      # 下一步
+    review_passed: bool  # 审核是否通过
+    review_feedback: str  # 审核反馈
+    iteration_count: int  # 迭代次数（防止无限循环）
 
 
 # =============================================================================
@@ -131,11 +135,17 @@ class ReviewAgent(SpecialistAgent):
 3. 提出改进建议
 4. 给出最终的质量评估
 
+重要：你必须在输出开头明确给出审核结论：
+【审核结论】通过 / 不通过
+
+如果审核不通过，请详细说明需要修改的地方。
+
 输出格式：
+【审核结论】通过 或 不通过
 【质量评估】整体质量评分(A/B/C/D)和理由
 【完整性检查】是否完整覆盖了所有需求
-【改进建议】具体的优化建议
-【最终输出】整合后的最终回答""",
+【改进建议】具体的优化建议（如不通过，必须详细说明）
+【最终输出】整合后的最终回答（如通过）或修改要求（如不通过）""",
             llm=llm
         )
 
@@ -162,7 +172,7 @@ class MultiAgentSystem:
         self.workflow = self._build_workflow()
     
     def _build_workflow(self):
-        """构建多智能体协作工作流"""
+        """构建多智能体协作工作流（支持条件分支）"""
         
         # 定义状态图
         workflow = StateGraph(MultiAgentState)
@@ -179,10 +189,35 @@ class MultiAgentSystem:
         # 添加边 - 顺序执行流程
         workflow.add_edge("researcher", "analyst")
         workflow.add_edge("analyst", "strategist")
+        
+        # 添加条件边：审核后根据结果决定流向
         workflow.add_edge("strategist", "reviewer")
-        workflow.add_edge("reviewer", END)
+        workflow.add_conditional_edges(
+            "reviewer",
+            self._check_review_result,
+            {
+                "approved": END,        # 审核通过，结束
+                "rejected": "strategist",  # 审核不通过，返回修改
+                "max_iterations": END,  # 达到最大迭代次数，强制结束
+            }
+        )
         
         return workflow.compile()
+    
+    def _check_review_result(self, state: MultiAgentState) -> str:
+        """检查审核结果，决定下一步流向"""
+        # 检查是否达到最大迭代次数（防止无限循环）
+        if state.get("iteration_count", 0) >= 3:
+            print("\n⚠️  已达到最大迭代次数，强制结束")
+            return "max_iterations"
+        
+        # 检查审核是否通过
+        if state.get("review_passed", False):
+            print("\n✅ 审核通过，流程结束")
+            return "approved"
+        else:
+            print(f"\n🔄 审核不通过，返回修改（第 {state.get('iteration_count', 0)} 轮）")
+            return "rejected"
     
     def _research_node(self, state: MultiAgentState) -> MultiAgentState:
         """研究节点"""
@@ -230,13 +265,36 @@ class MultiAgentSystem:
     
     def _solution_node(self, state: MultiAgentState) -> MultiAgentState:
         """方案节点"""
-        print("\n💡 [方案智能体] 正在制定解决方案...")
+        iteration = state.get("iteration_count", 0)
+        if iteration > 0:
+            print(f"\n💡 [方案智能体] 正在根据反馈修改方案（第 {iteration} 轮）...")
+        else:
+            print("\n💡 [方案智能体] 正在制定解决方案...")
         
         agent = self.agents["strategist"]
         
         # 构建方案输入，包含研究和分析结果
-        solution_input = [
-            HumanMessage(content=f"""请基于以下研究和分析结果制定解决方案：
+        if iteration > 0 and state.get("review_feedback"):
+            # 如果有审核反馈，包含反馈信息
+            solution_input = [
+                HumanMessage(content=f"""请基于以下研究和分析结果制定解决方案：
+
+=== 研究结果 ===
+{state['research_result']}
+
+=== 分析结果 ===
+{state['analysis_result']}
+
+原始问题：{state['messages'][0].content}
+
+=== 审核反馈（请重点改进）===
+{state['review_feedback']}
+
+注意：这是第 {iteration} 轮修改，请根据审核反馈重点改进上述问题。""")
+            ]
+        else:
+            solution_input = [
+                HumanMessage(content=f"""请基于以下研究和分析结果制定解决方案：
 
 === 研究结果 ===
 {state['research_result']}
@@ -245,22 +303,26 @@ class MultiAgentSystem:
 {state['analysis_result']}
 
 原始问题：{state['messages'][0].content}""")
-        ]
+            ]
         
         result = agent.invoke(solution_input)
         
-        print("✅ [方案智能体] 完成方案制定")
+        if iteration > 0:
+            print(f"✅ [方案智能体] 完成方案修改（第 {iteration} 轮）")
+        else:
+            print("✅ [方案智能体] 完成方案制定")
         
         return {
             **state,
             "current_agent": "strategist",
             "final_answer": result,
-            "messages": list(state["messages"]) + [AIMessage(content=f"[方案阶段]\n{result}")]
+            "messages": list(state["messages"]) + [AIMessage(content=f"[方案阶段{'-修改' + str(iteration) if iteration > 0 else ''}]\n{result}")]
         }
     
     def _review_node(self, state: MultiAgentState) -> MultiAgentState:
         """审核节点"""
-        print("\n✅ [审核智能体] 正在进行质量审核...")
+        iteration = state.get("iteration_count", 0) + 1
+        print(f"\n✅ [审核智能体] 正在进行质量审核（第 {iteration} 轮）...")
         
         agent = self.agents["reviewer"]
         
@@ -285,14 +347,49 @@ class MultiAgentSystem:
         
         result = agent.invoke(review_input)
         
-        print("✅ [审核智能体] 完成审核")
+        # 解析审核结果，判断是否通过
+        review_passed = self._parse_review_result(result)
+        
+        if review_passed:
+            print(f"✅ [审核智能体] 审核通过（第 {iteration} 轮）")
+        else:
+            print(f"❌ [审核智能体] 审核不通过（第 {iteration} 轮），需要修改")
         
         return {
             **state,
             "current_agent": "reviewer",
-            "final_answer": result,
-            "messages": list(state["messages"]) + [AIMessage(content=f"[审核阶段]\n{result}")]
+            "final_answer": result if review_passed else state["final_answer"],
+            "review_passed": review_passed,
+            "review_feedback": result if not review_passed else "",
+            "iteration_count": iteration,
+            "messages": list(state["messages"]) + [AIMessage(content=f"[审核阶段-{iteration}]\n{result}")]
         }
+    
+    def _parse_review_result(self, review_result: str) -> bool:
+        """解析审核结果，判断是否通过"""
+        # 检查审核结论中是否包含"通过"
+        review_lower = review_result.lower()
+        
+        # 查找【审核结论】部分
+        if "【审核结论】" in review_result:
+            # 提取审核结论行的内容
+            for line in review_result.split("\n"):
+                if "【审核结论】" in line:
+                    # 如果包含"不通过"或"未通过"，则返回False
+                    if "不通过" in line or "未通过" in line or "失败" in line:
+                        return False
+                    # 如果包含"通过"，则返回True
+                    if "通过" in line or "合格" in line or "approved" in line.lower():
+                        return True
+        
+        # 默认策略：检查是否有明显的负面关键词
+        negative_keywords = ["不通过", "未通过", "不合格", "需要修改", "重大缺陷", "严重问题"]
+        for keyword in negative_keywords:
+            if keyword in review_lower:
+                return False
+        
+        # 如果没有明确的负面词，默认为通过
+        return True
     
     def run(self, query: str) -> dict:
         """运行多智能体系统"""
@@ -304,7 +401,10 @@ class MultiAgentSystem:
             "research_result": "",
             "analysis_result": "",
             "final_answer": "",
-            "next_step": "researcher"
+            "next_step": "researcher",
+            "review_passed": False,
+            "review_feedback": "",
+            "iteration_count": 0
         }
         
         # 执行工作流
@@ -320,23 +420,49 @@ class MultiAgentSystem:
 def demo_multi_agent_collaboration():
     """演示多智能体协作"""
     print("\n" + "=" * 70)
-    print("🤖 Multi-Agent 多智能体协作演示")
+    print("🤖 Multi-Agent 多智能体协作演示（带条件分支）")
     print("=" * 70)
     print("""
 本演示展示了一个多智能体协作系统，包含4个专业智能体：
 
+                    ┌─────────────────────────────────────┐
+                    │                                     │
+                    ▼                                     │
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
 │  研究智能体  │───▶│  分析智能体  │───▶│  方案智能体  │───▶│  审核智能体  │
 │  Researcher │    │   Analyst   │    │  Strategist │    │   Reviewer  │
 └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
       🔍                 📊                 💡                 ✅
    信息收集           深度分析            制定方案            质量审核
+                                                              │
+                                                              ▼
+                                                    ┌─────────────────┐
+                                                    │  条件分支判断    │
+                                                    └────────┬────────┘
+                                                             │
+                                    ┌────────────────────────┼────────────────────────┐
+                                    │                        │                        │
+                                    ▼                        ▼                        ▼
+                              ┌─────────┐            ┌─────────────┐          ┌─────────────┐
+                              │  不通过  │───────────▶│  返回修改    │          │   通过      │
+                              │ rejected │            │ strategist  │          │  approved   │
+                              └─────────┘            └─────────────┘          └──────┬──────┘
+                                                                                     │
+                                                                                     ▼
+                                                                              ┌─────────────┐
+                                                                              │    结束     │
+                                                                              │     END     │
+                                                                              └─────────────┘
 
 工作流程：
 1. 研究智能体收集相关信息
 2. 分析智能体进行深度分析
 3. 方案智能体制定解决方案
 4. 审核智能体进行质量检查
+5. 【条件分支】根据审核结果：
+   - 通过 → 流程结束
+   - 不通过 → 返回方案智能体修改（最多3轮）
+   - 达到最大迭代次数 → 强制结束
 """)
     
     # 初始化 LLM
@@ -615,8 +741,21 @@ Multi-Agent 系统是由多个智能体（Agent）组成的协作系统，每个
 
 3. 流程控制 (Edge)
    - 定义节点间的流转关系
-   - 支持条件分支
+   - 支持条件分支 (add_conditional_edges)
    - 可以创建循环和复杂流程
+   
+   条件分支示例：
+   ```python
+   workflow.add_conditional_edges(
+       "reviewer",                    # 当前节点
+       check_review_result,           # 判断函数
+       {
+           "approved": END,           # 通过 → 结束
+           "rejected": "strategist",  # 不通过 → 返回修改
+           "max_iterations": END,     # 达到最大迭代 → 强制结束
+       }
+   )
+   ```
 
 4. 工具集成 (Tool)
    - 智能体可以调用外部工具
