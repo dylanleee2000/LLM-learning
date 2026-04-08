@@ -594,7 +594,7 @@ Multi-Agent 系统是由多个智能体（Agent）组成的协作系统，每个
          主管 Agent
         /    |    \
    执行A   执行B   执行C
-        \    |    /
+        \\    |    /
          汇总 Agent
 
 4. 辩论模式 (Debate)
