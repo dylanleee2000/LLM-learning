@@ -1,7 +1,7 @@
 """
 示例 5: Multi-Agent 多智能体协作系统
 演示多个专业智能体如何协作完成复杂任务
-Key Words: Multi-Agent, Collaboration, Workflow, State Graph, DAG
+Key Words: Multi-Agent, Collaboration, Workflow, State Graph, DAG(有向无环图)
 """
 import sys
 from pathlib import Path
