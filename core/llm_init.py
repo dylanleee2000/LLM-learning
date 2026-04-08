@@ -6,9 +6,12 @@ from core.config import (
     OPENAI_API_KEY,
     DASHSCOPE_API_KEY,
     OLLAMA_BASE_URL,
+    MIMO_API_KEY,
+    MIMO_BASE_URL,
     DEFAULT_OPENAI_MODEL,
     DEFAULT_QWEN_MODEL,
     DEFAULT_OLLAMA_MODEL,
+    DEFAULT_MIMO_MODEL,
 )
 
 
@@ -38,6 +41,8 @@ def get_llm(
         return _get_qwen_llm(model or DEFAULT_QWEN_MODEL, temperature, **kwargs)
     elif provider == "ollama":
         return _get_ollama_llm(model or DEFAULT_OLLAMA_MODEL, temperature, **kwargs)
+    elif provider == "mimo":
+        return _get_mimo_llm(model or DEFAULT_MIMO_MODEL, temperature, **kwargs)
     else:
         raise ValueError(f"不支持的 provider: {provider}")
 
@@ -80,6 +85,25 @@ def _get_ollama_llm(model: str, temperature: float, **kwargs) -> BaseChatModel:
         model=model,
         temperature=temperature,
         base_url=OLLAMA_BASE_URL,
+        **kwargs
+    )
+
+
+def _get_mimo_llm(model: str, temperature: float, **kwargs) -> BaseChatModel:
+    """初始化小米 MiMo LLM
+
+    MiMo API 兼容 OpenAI 格式，使用 ChatOpenAI 进行调用
+    """
+    if not MIMO_API_KEY:
+        raise ValueError("未配置 MIMO_API_KEY，请在 .env 文件中设置")
+
+    from langchain_openai import ChatOpenAI
+
+    return ChatOpenAI(
+        model=model,
+        temperature=temperature,
+        api_key=MIMO_API_KEY,
+        base_url=MIMO_BASE_URL,
         **kwargs
     )
 

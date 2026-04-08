@@ -26,6 +26,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
 LANGCHAIN_API_KEY = os.getenv("LANGCHAIN_API_KEY")
 VOLCANO_API_KEY = os.getenv("VOLCANO_API_KEY")
+MIMO_API_KEY = os.getenv("MIMO_API_KEY")
 
 # LangSmith 配置
 LANGCHAIN_TRACING_V2 = os.getenv("LANGCHAIN_TRACING_V2", "false").lower() == "true"
@@ -35,10 +36,14 @@ LANGCHAIN_PROJECT = os.getenv("LANGCHAIN_PROJECT", "llm-learning")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 # 默认模型配置
-DEFAULT_MODEL_PROVIDER = "openai"  # 可选: openai, qwen, ollama
+DEFAULT_MODEL_PROVIDER = "openai"  # 可选: openai, qwen, ollama, mimo
 DEFAULT_OPENAI_MODEL = "gpt-3.5-turbo"
 DEFAULT_QWEN_MODEL = "qwen-turbo"
 DEFAULT_OLLAMA_MODEL = "llama2"
+DEFAULT_MIMO_MODEL = "mimo-v2-pro"
+
+# MiMo API 配置
+MIMO_BASE_URL = os.getenv("MIMO_BASE_URL", "https://api.xiaomimimo.com/v1")
 
 # 向量存储配置
 VECTOR_STORE_PATH = PROJECT_ROOT / ".faiss"
@@ -52,6 +57,7 @@ def get_api_key(provider: str) -> str:
         "qwen": DASHSCOPE_API_KEY,
         # "dashscope": DASHSCOPE_API_KEY,
         # "volcano": VOLCANO_API_KEY,
+        "mimo": MIMO_API_KEY,
     }
     return keys.get(provider.lower())
 
