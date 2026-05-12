@@ -54,7 +54,7 @@ def get_api_key(provider: str) -> str:
     """获取指定 provider 的 API Key"""
     keys = {
         # "openai": OPENAI_API_KEY,
-        "qwen": DASHSCOPE_API_KEY,
+        #"qwen": DASHSCOPE_API_KEY,
         # "dashscope": DASHSCOPE_API_KEY,
         # "volcano": VOLCANO_API_KEY,
         "mimo": MIMO_API_KEY,
