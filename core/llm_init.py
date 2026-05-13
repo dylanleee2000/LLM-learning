@@ -99,6 +99,12 @@ def _get_mimo_llm(model: str, temperature: float, **kwargs) -> BaseChatModel:
 
     from langchain_openai import ChatOpenAI
 
+    # 禁用思考模式，避免 reasoning_content 回传报错
+    if "extra_body" not in kwargs:
+        kwargs["extra_body"] = {"enable_thinking": False}
+    else:
+        kwargs["extra_body"].setdefault("enable_thinking", False)
+
     return ChatOpenAI(
         model=model,
         temperature=temperature,
